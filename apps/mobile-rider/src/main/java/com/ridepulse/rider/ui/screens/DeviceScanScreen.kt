@@ -3,25 +3,46 @@ package com.ridepulse.rider.ui.screens
 import android.Manifest
 import android.bluetooth.BluetoothDevice
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.ridepulse.rider.bluetooth.SensorType
 import com.ridepulse.rider.data.model.DeviceInfo
+import com.ridepulse.rider.data.model.SensorType
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceScanScreen(
     isScanning: Boolean,
@@ -32,29 +53,29 @@ fun DeviceScanScreen(
     onDeviceClick: (BluetoothDevice) -> Unit,
     onDisconnectClick: (String) -> Unit
 ) {
-    val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(
+    val permissions = rememberMultiplePermissionsState(
+        listOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
     )
-    
+
     LaunchedEffect(Unit) {
-        if (!permissionsState.allPermissionsGranted) {
-            permissionsState.launchMultiplePermissionRequest()
+        if (!permissions.allPermissionsGranted) {
+            permissions.launchMultiplePermissionRequest()
         }
     }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Поиск сенсоров") },
+                title = { Text("Device scan") },
                 actions = {
                     IconButton(onClick = { if (isScanning) onStopScanClick() else onScanClick() }) {
                         Icon(
-                            if (isScanning) Icons.Default.Refresh else Icons.Default.BluetoothSearching,
-                            contentDescription = if (isScanning) "Остановить" else "Искать"
+                            imageVector = if (isScanning) Icons.Default.Refresh else Icons.Default.BluetoothSearching,
+                            contentDescription = if (isScanning) "Stop scan" else "Start scan"
                         )
                     }
                 }
@@ -66,47 +87,42 @@ fun DeviceScanScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Секция подключённых сенсоров
             if (connectedSensors.isNotEmpty()) {
                 Text(
-                    text = "Подключено (${connectedSensors.size})",
+                    text = "Connected (${connectedSensors.size})",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(16.dp)
                 )
-                
                 connectedSensors.forEach { device ->
                     ConnectedSensorCard(
                         device = device,
                         onDisconnect = { onDisconnectClick(device.id) }
                     )
                 }
-                
-                HorizontalDivider()
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
             }
-            
-            // Секция обнаруженных устройств
+
             if (discoveredDevices.isEmpty() && !isScanning) {
                 EmptyState(
                     icon = Icons.Default.Bluetooth,
-                    message = "Нажмите на иконку поиска для начала сканирования",
-                    buttonText = "Начать поиск",
+                    message = "Tap scan to discover BLE sensors",
+                    buttonText = "Start scan",
                     onButtonClick = onScanClick
                 )
             } else if (discoveredDevices.isEmpty() && isScanning) {
                 EmptyState(
                     icon = Icons.Default.BluetoothSearching,
-                    message = "Идёт поиск устройств...",
+                    message = "Scanning...",
                     showButton = false
                 )
             } else {
                 Text(
-                    text = "Обнаружено (${discoveredDevices.size})",
+                    text = "Discovered (${discoveredDevices.size})",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(16.dp)
                 )
-                
                 LazyColumn {
                     items(discoveredDevices) { device ->
                         DeviceCard(
@@ -122,17 +138,12 @@ fun DeviceScanScreen(
 }
 
 @Composable
-fun ConnectedSensorCard(
-    device: DeviceInfo,
-    onDisconnect: () -> Unit
-) {
+private fun ConnectedSensorCard(device: DeviceInfo, onDisconnect: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Row(
             modifier = Modifier
@@ -142,45 +153,24 @@ fun ConnectedSensorCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = device.name ?: "Неизвестное устройство",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = getSensorTypeName(device.type),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = device.address,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
-                )
+                Text(device.name ?: "Unknown device", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(getSensorTypeName(device.type), style = MaterialTheme.typography.bodyMedium)
+                Text(device.address, style = MaterialTheme.typography.bodySmall)
             }
-            
-            OutlinedButton(onClick = onDisconnect) {
-                Text("Отключить")
-            }
+            OutlinedButton(onClick = onDisconnect) { Text("Disconnect") }
         }
     }
 }
 
 @Composable
-fun DeviceCard(
-    device: BluetoothDevice,
-    isConnected: Boolean,
-    onClick: () -> Unit
-) {
+private fun DeviceCard(device: BluetoothDevice, isConnected: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clickable(enabled = !isConnected, onClick = onClick),
         colors = if (isConnected) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
         } else {
             CardDefaults.cardColors()
         }
@@ -193,32 +183,19 @@ fun DeviceCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = device.name ?: "Неизвестное устройство",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = device.address,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(device.name ?: "Unknown device", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(device.address, style = MaterialTheme.typography.bodySmall)
             }
-            
             if (isConnected) {
-                Text(
-                    text = "✓ Подключено",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium
-                )
+                Text("Connected", color = MaterialTheme.colorScheme.primary)
             }
         }
     }
 }
 
 @Composable
-fun EmptyState(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun EmptyState(
+    icon: ImageVector,
     message: String,
     buttonText: String? = null,
     showButton: Boolean = true,
@@ -231,34 +208,21 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-        )
+        Icon(icon, contentDescription = null, modifier = Modifier.size(80.dp))
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(message, style = MaterialTheme.typography.bodyLarge)
         if (showButton && buttonText != null && onButtonClick != null) {
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onButtonClick) {
-                Text(buttonText)
-            }
+            Button(onClick = onButtonClick) { Text(buttonText) }
         }
     }
 }
 
-fun getSensorTypeName(type: SensorType): String {
-    return when (type) {
-        SensorType.HEART_RATE -> "Пульс"
-        SensorType.POWER_METER -> "Мощность"
-        SensorType.SPEED_CADENCE -> "Скорость/Каденс"
-        SensorType.SPEED_ONLY -> "Скорость"
-        SensorType.CADENCE_ONLY -> "Каденс"
-        SensorType.UNKNOWN -> "Неизвестный тип"
-    }
+private fun getSensorTypeName(type: SensorType): String = when (type) {
+    SensorType.HEART_RATE -> "Heart rate"
+    SensorType.POWER_METER -> "Power"
+    SensorType.SPEED_CADENCE -> "Speed/Cadence"
+    SensorType.SPEED_ONLY -> "Speed"
+    SensorType.CADENCE_ONLY -> "Cadence"
+    SensorType.UNKNOWN -> "Unknown"
 }

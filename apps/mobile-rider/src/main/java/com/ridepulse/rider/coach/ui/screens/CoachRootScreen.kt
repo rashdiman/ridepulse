@@ -85,8 +85,3 @@ fun CoachRootScreen(
         }
     }
 }
-uth...")
-            }
-        }
-    }
-}
