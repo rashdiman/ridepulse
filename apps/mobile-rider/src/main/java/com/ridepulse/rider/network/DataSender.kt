@@ -5,12 +5,14 @@ import com.ridepulse.rider.data.model.SensorData
 import com.ridepulse.rider.data.model.SessionEnd
 import com.ridepulse.rider.data.model.SessionStart
 import com.ridepulse.rider.data.model.DeviceInfo
-import com.ridepulse.rider.data.model.SensorType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.parseToJsonElement
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response

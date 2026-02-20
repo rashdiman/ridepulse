@@ -4,9 +4,10 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
 import android.util.Log
+import com.ridepulse.rider.data.model.SensorData
+import com.ridepulse.rider.data.model.SensorType
 import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.ble.data.Data
-import java.util.UUID
 
 class SensorBleManager(
     context: Context,

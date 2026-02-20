@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ridepulse.rider.bluetooth.RidePulseBleManager
-import com.ridepulse.rider.bluetooth.SensorType
 import com.ridepulse.rider.data.model.DeviceInfo
 import com.ridepulse.rider.data.model.SensorData
 import com.ridepulse.rider.network.DataSender
@@ -161,4 +160,6 @@ sealed class RideUiState {
     data class SessionActive(val connectedSensors: List<DeviceInfo>) : RideUiState()
     object BluetoothDisabled : RideUiState()
     data class Error(val message: String) : RideUiState()
+}
+ss Error(val message: String) : RideUiState()
 }

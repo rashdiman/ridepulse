@@ -8,10 +8,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import com.ridepulse.rider.data.model.SensorData
+import com.ridepulse.rider.data.model.SensorType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.ble.data.Data
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,6 +46,7 @@ object BleUuids {
 
 @Singleton
 class RidePulseBleManager @Inject constructor(
+    @ApplicationContext
     private val context: Context
 ) {
     private val bluetoothManager: BluetoothManager? =

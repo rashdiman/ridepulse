@@ -11,10 +11,10 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.ridepulse.rider.BuildConfig
 import com.ridepulse.rider.MainActivity
 import com.ridepulse.rider.R
 import com.ridepulse.rider.bluetooth.RidePulseBleManager
-import com.ridepulse.rider.bluetooth.SensorType
 import com.ridepulse.rider.data.model.DeviceInfo
 import com.ridepulse.rider.data.model.SensorData
 import com.ridepulse.rider.network.DataSender
@@ -46,6 +46,8 @@ class SensorMonitoringService : Service() {
     val connectedSensors: StateFlow<List<DeviceInfo>> = _connectedSensors
     
     companion object {
+        private const val TAG = "SensorMonitoringService"
+
         const val CHANNEL_ID = "ridepulse_sensor_channel"
         const val NOTIFICATION_ID = 1001
         
@@ -228,8 +230,7 @@ class SensorMonitoringService : Service() {
             stopSession()
         }
     }
-    
-    companion object {
-        private const val TAG = "SensorMonitoringService"
+}
+l TAG = "SensorMonitoringService"
     }
 }
