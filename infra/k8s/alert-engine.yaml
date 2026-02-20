@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-engine
+  namespace: ridepulse
+  labels:
+    app: alert-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alert-engine
+  template:
+    metadata:
+      labels:
+        app: alert-engine
+    spec:
+      containers:
+      - name: alert-engine
+        image: ridepulse/alert-engine:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8082
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ridepulse-config
+              key: alert-port
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ridepulse-config
+              key: redis-url
+        - name: PG_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ridepulse-config
+              key: pg-host
+        - name: PG_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ridepulse-config
+              key: pg-port
+        - name: PG_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: ridepulse-secrets
+              key: pg-database
+        - name: PG_USER
+          valueFrom:
+            secretKeyRef:
+              name: ridepulse-secrets
+              key: pg-user
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ridepulse-secrets
+              key: pg-password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+          port: 8082
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-engine-service
+  namespace: ridepulse
+  labels:
+    app: alert-engine
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8082
+    targetPort: 8082
+  selector:
+    app: alert-engine
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: alert-engine-hpa
+  namespace: ridepulse
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: alert-engine
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70

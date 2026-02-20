@@ -1,0 +1,24 @@
+FROM node:18-alpine AS shared-types-builder
+WORKDIR /app/libs/shared-types
+COPY libs/shared-types/package.json ./
+COPY libs/shared-types/tsconfig.json ./
+COPY libs/shared-types/src ./src
+RUN npm install
+RUN npm run build
+
+FROM node:18-alpine AS builder
+WORKDIR /app/services/api-gateway
+COPY services/api-gateway/package*.json ./
+COPY --from=shared-types-builder /app/libs/shared-types /app/libs/shared-types
+RUN npm install
+COPY services/api-gateway/ ./
+RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app/services/api-gateway
+COPY services/api-gateway/package*.json ./
+COPY --from=builder /app/libs/shared-types /app/libs/shared-types
+RUN npm install --omit=dev
+COPY --from=builder /app/services/api-gateway/dist ./dist
+EXPOSE 3000
+CMD ["node", "dist/index.js"]

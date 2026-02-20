@@ -1,0 +1,19 @@
+FROM node:18-alpine AS base
+
+WORKDIR /app
+
+# Копируем package files
+COPY package*.json ./
+
+# Устанавливаем зависимости
+RUN npm ci
+
+# Копируем исходный код
+COPY . .
+
+# Собираем TypeScript
+RUN npm run build
+
+# Валидный этап для использования в других образах
+FROM base AS build
+RUN ls -la dist/

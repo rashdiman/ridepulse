@@ -1,0 +1,186 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: ridepulse-postgres
+    environment:
+      POSTGRES_DB: ridepulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ridepulse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api-gateway
+    container_name: ridepulse-api-gateway
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ridepulse
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@ridepulse.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ingest-ws:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.ingest-ws
+    container_name: ridepulse-ingest-ws
+    environment:
+      PORT: 8080
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metrics-processor:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.metrics-processor
+    container_name: ridepulse-metrics-processor
+    environment:
+      PORT: 8081
+      REDIS_URL: redis://redis:6379
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ridepulse
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  alert-engine:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.alert-engine
+    container_name: ridepulse-alert-engine
+    environment:
+      PORT: 8082
+      REDIS_URL: redis://redis:6379
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ridepulse
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gps-processor:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.gps-processor
+    container_name: ridepulse-gps-processor
+    environment:
+      PORT: 8083
+      REDIS_URL: redis://redis:6379
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ridepulse
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  replay-service:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.replay-service
+    container_name: ridepulse-replay-service
+    environment:
+      PORT: 8084
+      REDIS_URL: redis://redis:6379
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ridepulse
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web-dashboard:
+    build:
+      context: ./apps/web-dashboard
+      dockerfile: ../../infra/docker/Dockerfile.web-dashboard
+    container_name: ridepulse-web-dashboard
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080/ws}
+    ports:
+      - "3005:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
+      ingest-ws:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  default:
+    name: ridepulse-network

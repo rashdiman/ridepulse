@@ -1,0 +1,8 @@
+*
+!services/
+!services/**
+!libs/shared-types/
+!libs/shared-types/**
+!infra/docker/
+!infra/docker/**
+!.npmrc

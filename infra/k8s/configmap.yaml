@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ridepulse-config
+  namespace: ridepulse
+data:
+  # API Gateway
+  api-port: "3000"
+  cors-origin: "*"
+  
+  # Ingest WebSocket
+  ws-port: "8080"
+  
+  # Metrics Processor
+  metrics-port: "8081"
+  
+  # Alert Engine
+  alert-port: "8082"
+  
+  # GPS Processor
+  gps-port: "8083"
+  
+  # Replay Service
+  replay-port: "8084"
+  
+  # PostgreSQL
+  pg-host: "postgres-service"
+  pg-port: "5432"
+  
+  # Redis
+  redis-url: "redis://redis-service:6379"

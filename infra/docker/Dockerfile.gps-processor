@@ -1,0 +1,24 @@
+FROM node:18-alpine AS shared-types-builder
+WORKDIR /app/libs/shared-types
+COPY libs/shared-types/package.json ./
+COPY libs/shared-types/tsconfig.json ./
+COPY libs/shared-types/src ./src
+RUN npm install
+RUN npm run build
+
+FROM node:18-alpine AS builder
+WORKDIR /app/services/gps-processor
+COPY services/gps-processor/package*.json ./
+COPY --from=shared-types-builder /app/libs/shared-types /app/libs/shared-types
+RUN npm install
+COPY services/gps-processor/ ./
+RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app/services/gps-processor
+COPY services/gps-processor/package*.json ./
+COPY --from=builder /app/libs/shared-types /app/libs/shared-types
+RUN npm install --omit=dev
+COPY --from=builder /app/services/gps-processor/dist ./dist
+EXPOSE 8083
+CMD ["node", "dist/index.js"]
