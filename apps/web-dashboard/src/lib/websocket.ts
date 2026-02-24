@@ -67,6 +67,10 @@ class WebSocketClient {
     this.socket.on('session_end', (data: any) => {
       this.emit('session_end', data);
     });
+
+    this.socket.on('active_sessions', (data: any) => {
+      this.emit('active_sessions', data);
+    });
   }
 
   disconnect() {

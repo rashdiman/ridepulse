@@ -12,8 +12,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,11 +40,21 @@ data class AuthResponse(
     val tokens: AuthTokens
 )
 
+@Serializable
+private data class MeResponse(
+    val user: User
+)
+
 @Singleton
 class AuthApi @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .writeTimeout(12, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.SECONDS)
+        .build()
     private val json = Json { ignoreUnknownKeys = true }
     private val mediaType = "application/json".toMediaType()
 
@@ -54,7 +67,7 @@ class AuthApi @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Login failed: ${response.code}")
+                throwApiError("Login failed", response)
             }
             val payload = response.body?.string().orEmpty()
             json.decodeFromString(AuthResponse.serializer(), payload)
@@ -70,7 +83,7 @@ class AuthApi @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Register failed: ${response.code}")
+                throwApiError("Register failed", response)
             }
             val payload = response.body?.string().orEmpty()
             json.decodeFromString(AuthResponse.serializer(), payload)
@@ -86,11 +99,27 @@ class AuthApi @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Fetch user failed: ${response.code}")
+                throwApiError("Fetch user failed", response)
             }
             val payload = response.body?.string().orEmpty()
-            json.decodeFromString(User.serializer(), payload)
+            json.decodeFromString(MeResponse.serializer(), payload).user
         }
+    }
+
+    private fun throwApiError(prefix: String, response: Response): Nothing {
+        val body = response.body?.string().orEmpty()
+        val serverMessage = runCatching { JSONObject(body).optString("error") }.getOrNull()
+        val details = when {
+            !serverMessage.isNullOrBlank() -> serverMessage
+            body.isNotBlank() -> body.take(200)
+            else -> null
+        }
+        val message = if (details != null) {
+            "$prefix: ${response.code} ($details)"
+        } else {
+            "$prefix: ${response.code}"
+        }
+        throw IllegalStateException(message)
     }
 
     fun storeTokens(tokens: AuthTokens) {

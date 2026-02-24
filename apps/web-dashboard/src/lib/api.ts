@@ -1,7 +1,12 @@
 import { AuthResponse, AuthTokens, AuthUser } from '@/types/auth';
 import { Rider, Session, RiderMetrics } from '@/types/sensor';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+function resolveApiUrl(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:3000`;
+  }
+  return 'http://localhost:3000';
+}
 
 const ACCESS_TOKEN_KEY = 'ridepulse_access_token';
 const REFRESH_TOKEN_KEY = 'ridepulse_refresh_token';
@@ -181,4 +186,4 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(API_URL);
+export const apiClient = new ApiClient(resolveApiUrl());

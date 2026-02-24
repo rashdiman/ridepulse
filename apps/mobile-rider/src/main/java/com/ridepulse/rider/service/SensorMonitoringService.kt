@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.ridepulse.rider.BuildConfig
 import com.ridepulse.rider.MainActivity
 import com.ridepulse.rider.R
 import com.ridepulse.rider.bluetooth.RidePulseBleManager
@@ -54,8 +53,6 @@ class SensorMonitoringService : Service() {
         const val ACTION_START_SESSION = "com.ridepulse.rider.START_SESSION"
         const val ACTION_STOP_SESSION = "com.ridepulse.rider.STOP_SESSION"
         const val EXTRA_RIDER_ID = "rider_id"
-        const val EXTRA_WS_URL = "ws_url"
-        const val EXTRA_API_URL = "api_url"
     }
 
     inner class LocalBinder : Binder() {
@@ -72,9 +69,7 @@ class SensorMonitoringService : Service() {
         when (intent?.action) {
             ACTION_START_SESSION -> {
                 riderId = intent.getStringExtra(EXTRA_RIDER_ID) ?: ""
-                val wsUrl = intent.getStringExtra(EXTRA_WS_URL) ?: ""
-                val apiUrl = intent.getStringExtra(EXTRA_API_URL) ?: ""
-                startSession(wsUrl, apiUrl)
+                startSession()
             }
 
             ACTION_STOP_SESSION -> {
@@ -89,12 +84,12 @@ class SensorMonitoringService : Service() {
         return binder
     }
 
-    private fun startSession(wsUrl: String, apiUrl: String) {
+    private fun startSession() {
         if (isSessionActive) return
 
         Log.d(TAG, "Start session for rider: $riderId")
 
-        dataSender.connect(wsUrl)
+        dataSender.connect()
         startForeground(NOTIFICATION_ID, createNotification("Session active"))
 
         serviceScope.launch {
@@ -104,7 +99,7 @@ class SensorMonitoringService : Service() {
         isSessionActive = true
 
         serviceScope.launch {
-            dataSender.startSession(riderId, _connectedSensors.value, apiUrl)
+            dataSender.startSession(riderId, _connectedSensors.value)
         }
     }
 
@@ -117,7 +112,7 @@ class SensorMonitoringService : Service() {
         bleManager.stopScan()
 
         serviceScope.launch {
-            dataSender.endSession(riderId, BuildConfig.API_URL)
+            dataSender.endSession()
         }
 
         dataSender.disconnect()
@@ -131,11 +126,12 @@ class SensorMonitoringService : Service() {
             val device = bleManager.discoveredDevices.value.find { it.address == deviceAddress }
             device?.let {
                 bleManager.connectDevice(it) { sensorData ->
-                    val data = sensorData.copy(
-                        riderId = riderId,
-                        sessionId = dataSender.sessionId.value ?: ""
-                    )
-                    if (isSessionActive) {
+                    val currentSessionId = dataSender.sessionId.value
+                    if (isSessionActive && !currentSessionId.isNullOrBlank()) {
+                        val data = sensorData.copy(
+                            riderId = riderId,
+                            sessionId = currentSessionId
+                        )
                         dataSender.sendSensorData(data)
                     }
                 }

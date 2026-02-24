@@ -10,6 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,14 +24,18 @@ import com.ridepulse.rider.coach.ui.viewmodel.CoachDashboardViewModel
 
 @Composable
 fun CoachRootScreen(
-    authViewModel: CoachAuthViewModel = hiltViewModel(),
-    dashboardViewModel: CoachDashboardViewModel = hiltViewModel()
+    autoAuth: Boolean = false,
+    authViewModel: CoachAuthViewModel = hiltViewModel()
 ) {
     val authState by authViewModel.uiState.collectAsState()
-    val dashboardState by dashboardViewModel.uiState.collectAsState()
-    val selectedRiderId by dashboardViewModel.selectedRiderId.collectAsState()
     val authError = (authState as? CoachAuthUiState.Error)?.message
     val isAuthLoading = authState is CoachAuthUiState.Loading
+
+    LaunchedEffect(autoAuth) {
+        if (autoAuth) {
+            authViewModel.devLoginAsCoach()
+        }
+    }
 
     when (authState) {
         is CoachAuthUiState.NotAuthenticated -> {
@@ -54,6 +61,20 @@ fun CoachRootScreen(
         }
 
         is CoachAuthUiState.Authenticated -> {
+            val dashboardViewModel: CoachDashboardViewModel = hiltViewModel()
+            val dashboardState by dashboardViewModel.uiState.collectAsState()
+            val selectedRiderId by dashboardViewModel.selectedRiderId.collectAsState()
+            LaunchedEffect(Unit) {
+                dashboardViewModel.ensureStarted()
+            }
+
+            var showAndroidDashboard = remember { mutableStateOf(false) }
+
+            if (showAndroidDashboard.value) {
+                com.ridepulse.rider.ui.screens.DashboardScreen()
+                return
+            }
+
             if (selectedRiderId != null && dashboardState is CoachDashboardUiState.Success) {
                 val rider = (dashboardState as CoachDashboardUiState.Success)
                     .riders

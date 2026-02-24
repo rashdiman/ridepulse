@@ -30,8 +30,19 @@ android {
             )
         }
         debug {
-            buildConfigField("String", "WS_URL", "\"ws://10.0.2.2:8080/ws\"")
-            buildConfigField("String", "API_URL", "\"http://10.0.2.2:8080\"")
+            val ingestUrl = System.getenv("MOBILE_INGEST_URL")
+                ?: (project.findProperty("MOBILE_INGEST_URL")?.toString())
+                ?: "http://127.0.0.1:8080"
+            val mobileWsUrl = System.getenv("MOBILE_WS_URL")
+                ?: (project.findProperty("MOBILE_WS_URL")?.toString())
+                ?: "ws://127.0.0.1:8080"
+            val apiUrl = System.getenv("API_URL")
+                ?: (project.findProperty("API_URL")?.toString())
+                ?: "http://127.0.0.1:3000"
+
+            buildConfigField("String", "WS_URL", "\"${mobileWsUrl}\"")
+            buildConfigField("String", "API_URL", "\"${apiUrl}\"")
+            buildConfigField("String", "INGEST_URL", "\"${ingestUrl}\"")
         }
     }
 
@@ -87,6 +98,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Socket.IO client for Android (used to sync with ingest-ws)
+    implementation("io.socket:socket.io-client:2.0.1")
     implementation("no.nordicsemi.android:ble:2.7.5")
     implementation("no.nordicsemi.android:ble-ktx:2.7.5")
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")

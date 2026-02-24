@@ -1,11 +1,15 @@
 package com.ridepulse.rider.coach.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 @Serializable
 enum class UserRole {
+    @SerialName("rider")
     RIDER,
+    @SerialName("coach")
     COACH,
+    @SerialName("admin")
     ADMIN
 }
 
@@ -77,4 +81,11 @@ data class RiderWithMetrics(
     val avatar: String?,
     val status: String = "offline",
     val currentMetrics: RiderMetrics? = null
+)
+
+@Serializable
+data class ActiveSession(
+    val id: String,
+    val riderId: String,
+    val riderName: String? = null
 )

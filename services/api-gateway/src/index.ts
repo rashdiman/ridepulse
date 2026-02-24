@@ -21,30 +21,53 @@ let pgPool: Pool | null = null;
 /**
  * Подключение к PostgreSQL
  */
-async function connectPostgres() {
-  try {
-    pgPool = new Pool({
-      host: process.env.PG_HOST || 'localhost',
-      port: parseInt(process.env.PG_PORT || '5432'),
-      database: process.env.PG_DATABASE || 'ridepulse',
-      user: process.env.PG_USER || 'postgres',
-      password: process.env.PG_PASSWORD || 'postgres',
-      max: 20,
-    });
+async function connectPostgres(): Promise<void> {
+  const nextPool = new Pool({
+    host: process.env.PG_HOST || 'localhost',
+    port: parseInt(process.env.PG_PORT || '5432', 10),
+    database: process.env.PG_DATABASE || 'ridepulse',
+    user: process.env.PG_USER || 'postgres',
+    password: process.env.PG_PASSWORD || 'postgres',
+    max: 20,
+  });
 
-    const client = await pgPool.connect();
+  try {
+    const client = await nextPool.connect();
     await client.query('SELECT 1');
     client.release();
-    
+    pgPool = nextPool;
     console.log('✅ PostgreSQL подключён');
   } catch (error) {
-    console.error('❌ Ошибка подключения к PostgreSQL:', error);
+    await nextPool.end().catch(() => undefined);
+    throw error;
   }
 }
 
-/**
- * Создание таблиц
- */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function initializePostgres(retries = 30, delayMs = 2000): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      await connectPostgres();
+      await createTables();
+      return;
+    } catch (error) {
+      const shouldRetry = attempt < retries;
+      console.error(
+        `❌ PostgreSQL init attempt ${attempt}/${retries} failed${shouldRetry ? ', retrying...' : ''}:`,
+        error
+      );
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      await sleep(delayMs);
+    }
+  }
+}
 async function createTables() {
   const client = await pgPool!.connect();
   try {
@@ -399,11 +422,26 @@ app.get('/api/riders', authenticateToken, requirePermission('riders:view_all' as
 /**
  * Health check
  */
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    pgConnected: !!pgPool,
-  });
+app.get('/health', async (req, res) => {
+  try {
+    if (!pgPool) {
+      return res.status(503).json({
+        status: 'degraded',
+        pgConnected: false,
+      });
+    }
+
+    await pgPool.query('SELECT 1');
+    res.json({
+      status: 'ok',
+      pgConnected: true,
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'degraded',
+      pgConnected: false,
+    });
+  }
 });
 
 /**
@@ -420,14 +458,17 @@ app.use('/api/sessions', authenticateToken, async (req: AuthRequest, res: Respon
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-  await connectPostgres();
-  await createTables();
+  await initializePostgres();
 
   app.listen(PORT, () => {
-    console.log(`🚀 API Gateway запущен на порту ${PORT}`);
-    console.log(`📧 Admin email: ${process.env.ADMIN_EMAIL || 'admin@ridepulse.com'}`);
-    console.log(`🔑 Admin password: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
+    console.log(`API Gateway started on port ${PORT}`);
+    console.log(`Admin email: ${process.env.ADMIN_EMAIL || 'admin@ridepulse.com'}`);
+    console.log(`Admin password: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error('Fatal startup error:', error);
+  process.exit(1);
+});
+
